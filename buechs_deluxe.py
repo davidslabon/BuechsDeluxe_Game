@@ -6,6 +6,7 @@ from settings import Settings
 from toilet_paper import ToiletPaper
 from buechs import Buechs
 from throw import Throw
+from attacker import Attacker
 
 class BuechsDeluxe:
     """Overall class to manage game assets and behavior."""
@@ -24,6 +25,9 @@ class BuechsDeluxe:
         self.toiletpaper = ToiletPaper(self)
         self.buechs = Buechs(self)
         self.throws = pygame.sprite.Group()
+        self.attackers = pygame.sprite.Group()
+
+        self._create_fleet()
         
     def run_game(self):
         """Start the main loop for the game."""
@@ -85,12 +89,19 @@ class BuechsDeluxe:
         self.buechs.blitme()
         for throw in self.throws.sprites():
             throw.draw_throw()
+        self.attackers.draw(self.screen)
 
     def _throw_paper(self):
         """Create a new throw and add it to the throws group."""
         if len(self.throws) < self.settings.throws_allowed:
             new_throw = Throw(self)
             self.throws.add(new_throw)
+
+    def _create_fleet(self):
+        """Create a fleet of attackers."""
+        # Make an attacker.
+        attacker = Attacker(self)
+        self.attackers.add(attacker)
 
 
 if __name__ == "__main__":

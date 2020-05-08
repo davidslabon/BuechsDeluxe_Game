@@ -16,6 +16,7 @@ class Settings:
         self.throw_height = 15
         self.throw_color = (100, 100, 255)
         self.throws_allowed = 3
-
+        self.throw_rot_speed = 2
+        
         # Toiletpaper settings.
         self.toiletpaper_speed = 3.5
