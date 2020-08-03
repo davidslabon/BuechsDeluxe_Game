@@ -23,8 +23,6 @@ class ToiletPaper:
         self.moving_right = False
         self.moving_left = False
 
-        
-
     def update(self):
         """Update the paper's position based on the movement flag."""
         # Update the papers x value, not the rect.
@@ -39,3 +37,8 @@ class ToiletPaper:
     def blitme(self):
         """Draw the paper at its current location."""
         self.screen.blit(self.image, self.rect)
+
+    def center_toiletpaper(self):
+        """Center the toiletpaper on the screen."""
+        self.rect.midbottom = self.screen_rect.midbottom
+        self.x = float(self.rect.x)
