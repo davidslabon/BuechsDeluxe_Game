@@ -9,6 +9,8 @@ from toilet_paper import ToiletPaper
 from buechs import Buechs
 from throw import Throw
 from attacker import Attacker
+from button import Button
+from scoreboard import Scoreboard
 
 class BuechsDeluxe:
     """Overall class to manage game assets and behavior."""
@@ -18,26 +20,33 @@ class BuechsDeluxe:
         pygame.init()
         self.settings = Settings()
         
-        self.screen = pygame.display.set_mode((0,0), pygame.FULLSCREEN)
+        self.screen = pygame.display.set_mode((self.settings.screen_width, self.settings.screen_height))
         self.settings.screen_width = self.screen.get_rect().width
         self.settings.screen_height = self.screen.get_rect().height
 
         pygame.display.set_caption("Buechs Deluxe")
         
+        # Create an instance to store game statistics 
+        #   and create a scoreboard.
         self.stats = GameStats(self)
+        self.sb = Scoreboard(self)
         self.toiletpaper = ToiletPaper(self)
         self.throws = pygame.sprite.Group()
         self.attackers = pygame.sprite.Group()
 
         self._create_fleet()
+        self.play_button = Button(self, "Play")
         
     def run_game(self):
         """Start the main loop for the game."""
         while True:
             self._check_events()
-            self.toiletpaper.update()
-            self._update_throws()   
-            self._update_attackers()
+
+            if self.stats.game_active:
+                self.toiletpaper.update()
+                self._update_throws()   
+                self._update_attackers()
+
             self._update_screen()
             
             # Make the most recently drawn screen visible.
@@ -53,7 +62,38 @@ class BuechsDeluxe:
                 self._check_keydown_events(event)
             elif event.type == pygame.KEYUP:
                 self._check_keyup_events(event)
-                
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                mouse_pos = pygame.mouse.get_pos()
+                self._check_play_button(mouse_pos)
+
+
+    def _check_play_button(self, mouse_pos):
+        """Start a new game when the player clicks Play."""
+        if self.play_button.rect.collidepoint(mouse_pos):
+            self._start_game()
+
+    def _start_game(self):
+        if not self.stats.game_active:
+            # Rest the game settings.
+            self.settings.initialize_dynamic_settings()
+            
+            # Reset the game statistics
+            self.stats.reset_stats()
+            self.stats.game_active = True
+            self.sb.prep_score()
+            self.sb.prep_level()
+            self.sb.prep_toiletpapers()
+
+            #Get rid of any remaining attackers and throws.
+            self.attackers.empty()
+            self.throws.empty()
+
+            # Create a new attacker fleet and center the toilet paper.
+            self._create_fleet()
+            self.toiletpaper.center_toiletpaper()
+
+            # Hide the mouse cursor.
+            pygame.mouse.set_visible(False)
 
     def _check_keydown_events(self, event):
         """Check for keydown events and start movement."""
@@ -63,6 +103,8 @@ class BuechsDeluxe:
             self.toiletpaper.moving_left = True
         elif event.key == pygame.K_q or event.key == pygame.K_ESCAPE:
             sys.exit()
+        elif event.key == pygame.K_p:
+            self._start_game()
         elif event.key == pygame.K_SPACE:
             self._throw_paper()
     
@@ -90,10 +132,23 @@ class BuechsDeluxe:
         #  If so, get rid of the throw and the attacker.
         collisions = pygame.sprite.groupcollide(self.throws, self.attackers, True, True)
 
+        if collisions:
+            for attackers in collisions.values():
+                self.stats.score += self.settings.attacker_points
+                self.sb.check_high_score()
+            self.sb.prep_score()
+            
+            
+
         if not self.attackers:
             # Destroy existing throws and create a new fleet.
             self.throws.empty()
             self._create_fleet()
+            self.settings.increase_speed()
+
+            # Increase level.
+            self.stats.level += 1
+            self.sb.prep_level()
 
     def _update_attackers(self):
         """Check if the fleet is at an edge,
@@ -104,22 +159,39 @@ class BuechsDeluxe:
         # Look for an attacker - toiletpaper collision.
         if pygame.sprite.spritecollideany(self.toiletpaper, self.attackers):
             self._toiletpaper_hit()
+
+        # Look for attackers itting the bottom of the screeb.
+        self._check_attackers_bottom()
+
+    def _check_attackers_bottom(self):
+        """Check if any attackers have reached the bottom of the screen"""
+        screen_rect = self.screen.get_rect()
+        for attacker in self.attackers.sprites():
+            if attacker.rect.bottom >= screen_rect.bottom:
+                # Treat this the same as if the paper got hit.
+                self._toiletpaper_hit()
+                break
         
     def _toiletpaper_hit(self):
         """Respond to the toiletpaper hit by an attacker."""
-        # Decrement toiletpapers left.
-        self.stats.toiletpaper_left -= 1
+        if self.stats.toiletpaper_left > 0:
+            # Decrement toiletpapers left and update scoreboard
+            self.stats.toiletpaper_left -= 1
+            self.sb.prep_toiletpapers()
 
-        # Get rid of any remaining throws and attackers.
-        self.attackers.empty()
-        self.throws.empty()
+            # Get rid of any remaining throws and attackers.
+            self.attackers.empty()
+            self.throws.empty()
 
-        # Create a new fleet and center the toiletpaper.
-        self._create_fleet()
-        self.toiletpaper.center_toiletpaper()
+            # Create a new fleet and center the toiletpaper.
+            self._create_fleet()
+            self.toiletpaper.center_toiletpaper()
 
-        # Pause
-        sleep(0.5)
+            # Pause
+            sleep(0.5)
+        else:
+            self.stats.game_active = False
+            pygame.mouse.set_visible(True)
 
 
     def _update_screen(self):
@@ -130,6 +202,13 @@ class BuechsDeluxe:
         for throw in self.throws.sprites():
             throw.blitme()
         self.attackers.draw(self.screen)
+        
+        self.sb.show_score()
+   
+        if not self.stats.game_active:
+            self.play_button.draw_button()
+        
+        pygame.display.flip()
 
     def _throw_paper(self):
         """Create a new throw and add it to the throws group."""

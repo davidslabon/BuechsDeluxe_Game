@@ -1,10 +1,12 @@
 import pygame
+from pygame.sprite import Sprite
  
-class ToiletPaper:
+class ToiletPaper(Sprite):
     """A class to manage the toiletpaper."""
  
     def __init__(self, bd_game):
         """Initialize the toiletpaper and set its starting position."""
+        super().__init__()
         self.screen = bd_game.screen
         self.screen_rect = bd_game.screen.get_rect()
         self.settings = bd_game.settings
